@@ -30,3 +30,9 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Local Passkey Server build and development secrets
+/passkey-server
+/config.json
+/dev-certs/
+passkey-demo

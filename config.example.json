@@ -1,0 +1,14 @@
+{
+  "admin": {
+    "enabled": false
+  },
+  "applications": [
+    {
+      "code": "shop",
+      "name": "Example Shop",
+      "rpId": "localhost",
+      "origins": ["https://localhost:3000"],
+      "clients": ["sha256:0000000000000000000000000000000000000000000000000000000000000000"]
+    }
+  ]
+}
