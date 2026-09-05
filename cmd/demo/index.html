@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passkey Server — Demo</title>
+<style>
+  :root { color-scheme: light dark; font: 16px system-ui, sans-serif; }
+  body { max-width: 38rem; margin: 4rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.6rem; }
+  label { display: block; margin: 2rem 0 .5rem; }
+  input, button { font: inherit; padding: .7rem; border: 1px solid #888; border-radius: .4rem; }
+  input { width: 100%; box-sizing: border-box; }
+  .actions { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 1rem; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .5; cursor: wait; }
+  #status { margin-top: 1.5rem; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; }
+</style>
+<main>
+  <h1>Passkey Server — Demo</h1>
+  <p>Create a passkey and verify sign-in for the same user.</p>
+  <p>Local test demo. Verifying sign-in does not create a user session.</p>
+  <label for="subject">User identifier (subject)</label>
+  <input id="subject" value="alice" maxlength="256" autocomplete="off" spellcheck="false">
+  <div class="actions">
+    <button id="register" type="button">Add passkey</button>
+    <button id="login" type="button">Verify sign-in</button>
+  </div>
+  <p id="status" role="status" aria-live="polite">Ready to test.</p>
+  <pre id="result"></pre>
+</main>
+<script>
+  const subject = document.querySelector('#subject');
+  const register = document.querySelector('#register');
+  const login = document.querySelector('#login');
+  const status = document.querySelector('#status');
+  const result = document.querySelector('#result');
+
+  function decode(value) {
+    const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    return Uint8Array.from(atob(padded), character => character.charCodeAt(0));
+  }
+
+  function encode(value) {
+    if (value === null || value === undefined) return null;
+    let binary = '';
+    for (const byte of new Uint8Array(value)) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function optionsFromJSON(options, creating) {
+    const publicKey = {...options.publicKey, challenge: decode(options.publicKey.challenge)};
+    if (creating) publicKey.user = {...publicKey.user, id: decode(publicKey.user.id)};
+    for (const field of ['allowCredentials', 'excludeCredentials']) {
+      if (publicKey[field]) {
+        publicKey[field] = publicKey[field].map(item => ({...item, id: decode(item.id)}));
+      }
+    }
+    return {...options, publicKey};
+  }
+
+  function credentialJSON(credential, creating) {
+    const response = {clientDataJSON: encode(credential.response.clientDataJSON)};
+    if (creating) {
+      response.attestationObject = encode(credential.response.attestationObject);
+      if (credential.response.getTransports) response.transports = credential.response.getTransports();
+    } else {
+      response.authenticatorData = encode(credential.response.authenticatorData);
+      response.signature = encode(credential.response.signature);
+      response.userHandle = encode(credential.response.userHandle);
+    }
+    const output = {
+      id: credential.id,
+      rawId: encode(credential.rawId),
+      type: credential.type,
+      response,
+      clientExtensionResults: credential.getClientExtensionResults(),
+    };
+    if (credential.authenticatorAttachment) output.authenticatorAttachment = credential.authenticatorAttachment;
+    return output;
+  }
+
+  const messages = {
+    authentication_failed: 'Sign-in verification failed. Check the user identifier and try again.',
+    registration_invalid: 'Passkey validation failed. Please start again.',
+    conflict: 'The passkey is already registered or this attempt has finished. Start again.',
+    registration_expired: 'Registration timed out. Start again.',
+    authentication_expired: 'Sign-in verification timed out. Start again.',
+    forbidden: 'Backend access denied. Check the client certificate and fingerprint.',
+    application_not_found: 'Application not found in the Passkey Server configuration.',
+    upstream_unavailable: 'Passkey Server is unavailable. Check that it is running and verify the certificates.',
+    invalid_request: 'Invalid request. Check the user identifier.',
+  };
+
+  async function post(path, body) {
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(messages[data.error] || `Error: ${data.error || response.status}`);
+    return data;
+  }
+
+  async function ceremony(creating) {
+    if (!subject.value || new TextEncoder().encode(subject.value).length > 256) {
+      status.textContent = 'Enter a subject between 1 and 256 UTF-8 bytes long.';
+      return;
+    }
+    subject.disabled = register.disabled = login.disabled = true;
+    result.textContent = '';
+    status.textContent = 'Preparing…';
+    try {
+      const path = creating ? '/api/registrations' : '/api/authentications';
+      const started = await post(`${path}/start`, {subject: subject.value});
+      status.textContent = 'Confirm the action in the system dialog.';
+      const options = optionsFromJSON(started.options, creating);
+      const credential = creating
+        ? await navigator.credentials.create(options)
+        : await navigator.credentials.get(options);
+      if (!credential) throw new Error('Action cancelled.');
+      status.textContent = 'Verifying the result…';
+      const finished = await post(`${path}/finish`, {
+        token: started.token,
+        credential: credentialJSON(credential, creating),
+      });
+      status.textContent = creating ? 'Passkey added.' : 'Sign-in verified successfully.';
+      result.textContent = JSON.stringify(finished, null, 2);
+    } catch (error) {
+      const browserMessages = {
+        NotAllowedError: 'The action was cancelled, timed out, or no matching passkey is available.',
+        InvalidStateError: 'This passkey is already registered for the user.',
+        SecurityError: 'Check HTTPS certificate trust and the Origin / RP ID configuration.',
+      };
+      status.textContent = browserMessages[error.name] || error.message;
+    } finally {
+      subject.disabled = register.disabled = login.disabled = false;
+    }
+  }
+
+  register.addEventListener('click', () => ceremony(true));
+  login.addEventListener('click', () => ceremony(false));
+  if (!window.isSecureContext || !window.PublicKeyCredential || !navigator.credentials) {
+    register.disabled = login.disabled = true;
+    status.textContent = 'A browser with WebAuthn support and a trusted HTTPS connection is required.';
+  }
+</script>
+</html>
