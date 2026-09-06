@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Validate semantic version
+        id: version
+        shell: bash
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Expected a stable tag such as v0.9.0, got: $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+  integration:
+    name: PostgreSQL and race tests
+    needs: validate
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: passkey_test
+          POSTGRES_PASSWORD: passkey_test
+          POSTGRES_DB: passkey_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U passkey_test -d passkey_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_DSN: postgres://passkey_test:passkey_test@localhost:5432/passkey_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - run: go test -race ./...
+
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: validate
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {goos: linux, goarch: amd64, runner: ubuntu-24.04}
+          - {goos: linux, goarch: arm64, runner: ubuntu-24.04-arm}
+          - {goos: darwin, goarch: amd64, runner: macos-15-intel}
+          - {goos: darwin, goarch: arm64, runner: macos-15}
+          - {goos: windows, goarch: amd64, runner: windows-2022}
+          - {goos: windows, goarch: arm64, runner: windows-11-arm}
+    env:
+      CGO_ENABLED: "0"
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Test
+        run: go test ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build and package
+        run: python scripts/package-release.py --verify-version
+      - uses: actions/upload-artifact@v7
+        with:
+          name: shellty-passkey-server_${{ env.VERSION }}_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/*
+          compression-level: 0
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: [validate, integration, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: shellty-passkey-server_*
+          path: dist
+          merge-multiple: true
+      - name: Verify archives and create checksums
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        shell: bash
+        run: |
+          cd dist
+          expected=()
+          for os in linux darwin windows; do
+            ext=tar.gz
+            if [[ "$os" == windows ]]; then ext=zip; fi
+            for arch in amd64 arm64; do
+              archive="shellty-passkey-server_${VERSION}_${os}_${arch}.${ext}"
+              test -s "$archive"
+              expected+=("$archive")
+            done
+          done
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 6
+          sha256sum "${expected[@]}" > SHA256SUMS
+          sha256sum --check SHA256SUMS
+      - name: Publish release
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --verify-tag \
+            --title "Shellty Passkey Server $GITHUB_REF_NAME" \
+            --generate-notes

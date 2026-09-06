@@ -38,11 +38,10 @@ mock/assertion frameworks or YAML and they are not part of the server's runtime
 imports. No routing, DI, ORM, migration, JavaScript frontend or configuration framework was
 introduced. No MDS provider or outbound vendor client is configured.
 
-Before a release, regenerate the runtime inventory with
-`go list -deps -json ./cmd/web`, inspect changes in module versions and imported
-packages, include the upstream license/notice texts with the distribution, run a
-vulnerability check, and publish the release SBOM. Release automation is outside
-this first iteration.
+The [release workflow](releases.md) inventories runtime modules with
+`go list -deps -json ./cmd/web` and bundles their license/notice files, plus the Go
+and Pico licenses. Review dependency changes before shipping. Vulnerability scans
+and SBOM publication remain separate release tasks, not automated by this workflow.
 
 ## Embedded administration styles
 

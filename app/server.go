@@ -17,9 +17,12 @@ import (
 
 const databaseTimeout = 3 * time.Second
 
-func Run(ctx context.Context, args []string, output io.Writer) error {
+var version = "dev"
+
+func Run(ctx context.Context, args []string, stdout, output io.Writer) error {
 	flags := flag.NewFlagSet("passkey-server", flag.ContinueOnError)
 	flags.SetOutput(output)
+	showVersion := flags.Bool("version", false, "print version and exit")
 	listen := flags.String("listen", ":8443", "HTTPS listen address or port")
 	configFile := flags.String("config", "", "product JSON configuration")
 	dsn := flags.String("database-dsn", "", "PostgreSQL connection string")
@@ -27,6 +30,10 @@ func Run(ctx context.Context, args []string, output io.Writer) error {
 	key := flags.String("tls-key", "", "TLS key file")
 	ca := flags.String("client-ca", "", "trusted client CA PEM file")
 	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if *showVersion && flags.NArg() == 0 {
+		_, err := fmt.Fprintf(stdout, "passkey-server %s\n", version)
 		return err
 	}
 	if flags.NArg() != 0 || *configFile == "" || *dsn == "" {

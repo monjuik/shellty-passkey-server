@@ -134,7 +134,7 @@ func TestErrorMapping(t *testing.T) {
 	}
 }
 func TestRunRejectsIncompleteConfiguration(t *testing.T) {
-	if err := Run(context.Background(), nil, io.Discard); err == nil {
+	if err := Run(context.Background(), nil, io.Discard, io.Discard); err == nil {
 		t.Fatal("missing flags accepted")
 	}
 }

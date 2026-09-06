@@ -114,6 +114,7 @@ registrations and signs real assertions. No physical passkey needed.
 - [Administration](docs/administration.md)
 - [Architecture](docs/architecture.md)
 - [Dependencies](docs/dependencies.md)
+- [Releasing](docs/releases.md)
 
 ## Commercial support
 

@@ -36,3 +36,6 @@ go.work.sum
 /config.json
 /dev-certs/
 passkey-demo
+
+# Release archives
+/dist/
