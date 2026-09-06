@@ -1,0 +1,48 @@
+{{define "configuration"}}
+    {{template "start" .}}
+    <header>
+        <hgroup>
+            <h1>Configuration</h1>
+            <p>Applications configured for this server.</p>
+        </hgroup>
+    </header>
+    <figure>
+        <table class="striped">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>RP ID</th>
+                    <th>Origins</th>
+                    <th>Client fingerprints</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Applications}}
+                    <tr>
+                        <td>
+                            <a href="{{applicationURL .Code}}"><code>{{.Code}}</code></a>
+                        </td>
+                        <td>{{.Name}}</td>
+                        <td><code>{{.RPID}}</code></td>
+                        <td>
+                            {{range .Origins}}
+                                <div><code>{{.}}</code></div>
+                            {{end}}
+                        </td>
+                        <td class="fingerprints">
+                            {{range .Clients}}
+                                <div><code>{{.}}</code></div>
+                            {{end}}
+                        </td>
+                    </tr>
+                {{else}}
+                    <tr>
+                        <td colspan="5">No applications configured.</td>
+                    </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </figure>
+    {{template "end" .}}
+{{end}}

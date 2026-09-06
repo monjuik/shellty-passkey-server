@@ -11,7 +11,7 @@ import (
 	"github.com/monjuik/shellty-passkey-server/assets"
 )
 
-const schemaVersion = 1
+const schemaVersion = 2
 const migrationLock int64 = 739245761834
 
 // Migrate serializes startup migrations across nodes and validates file checksums.

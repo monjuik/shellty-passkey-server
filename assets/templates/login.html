@@ -1,0 +1,22 @@
+{{define "login"}}
+    {{template "head" .}}
+    <body>
+        <main class="container login">
+            <hgroup>
+                <h1>Sign in</h1>
+                <p>Shellty Passkey Server</p>
+            </hgroup>
+            {{if .Error}}
+                <p class="error" role="alert">{{.Error}}</p>
+            {{end}}
+            <form method="post" action="/admin/login">
+                <label for="username">Username</label>
+                <input id="username" name="username" autocomplete="username" maxlength="256" required autofocus>
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" autocomplete="current-password" required>
+                <button type="submit">Sign in</button>
+            </form>
+        </main>
+    </body>
+</html>
+{{end}}

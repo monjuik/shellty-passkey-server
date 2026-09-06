@@ -1,0 +1,7 @@
+{{define "error"}}
+    {{template "start" .}}
+    <h1>{{.Title}}</h1>
+    <p role="alert">{{.Error}}</p>
+    <a href="/admin/history">View history</a>
+    {{template "end" .}}
+{{end}}

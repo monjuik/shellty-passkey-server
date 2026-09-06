@@ -238,7 +238,7 @@ func TestMigrationValidation(t *testing.T) {
 	if err := app.Migrate(ctx, pool); err != nil {
 		t.Fatal("repeat migration", err)
 	}
-	if _, err := pool.Exec(ctx, "INSERT INTO migration(version,checksum) VALUES(2,'future')"); err != nil {
+	if _, err := pool.Exec(ctx, "INSERT INTO migration(version,checksum) VALUES(3,'future')"); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Migrate(ctx, pool); err == nil {
@@ -247,7 +247,7 @@ func TestMigrationValidation(t *testing.T) {
 	if err := app.CheckSchema(ctx, pool); err == nil {
 		t.Fatal("newer schema ready")
 	}
-	if _, err := pool.Exec(ctx, "DELETE FROM migration WHERE version=2"); err != nil {
+	if _, err := pool.Exec(ctx, "DELETE FROM migration WHERE version=3"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, "UPDATE migration SET checksum='changed' WHERE version=1"); err != nil {

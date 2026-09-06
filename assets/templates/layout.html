@@ -1,0 +1,75 @@
+{{define "head"}}
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{{.Title}} - Shellty Passkey Server</title>
+        <link rel="stylesheet" href="/admin/static/pico-2.1.1.min.css">
+        <link rel="stylesheet" href="/admin/static/admin.css">
+    </head>
+{{end}}
+
+{{define "start"}}
+    {{template "head" .}}
+    <body>
+        <div class="container-fluid app-shell">
+            <aside class="app-menu">
+                <strong>Shellty<br>Passkey Server</strong>
+                <nav aria-label="Main navigation">
+                    <ul>
+                        <li>
+                            <a href="/admin/configuration" {{if eq .Active "configuration"}}aria-current="page"{{end}}>Configuration</a>
+                        </li>
+                        <li>
+                            <a href="/admin/credentials" {{if eq .Active "credentials"}}aria-current="page"{{end}}>Credentials</a>
+                        </li>
+                        <li>
+                            <a href="/admin/history" {{if eq .Active "history"}}aria-current="page"{{end}}>History</a>
+                        </li>
+                    </ul>
+                </nav>
+                <form method="post" action="/admin/logout">
+                    <button class="secondary outline" type="submit">Sign out</button>
+                </form>
+            </aside>
+            <main>
+{{end}}
+
+{{define "end"}}
+            </main>
+        </div>
+    </body>
+</html>
+{{end}}
+
+{{define "scopeFilters"}}
+    <label for="application">
+        Application
+        <input id="application" name="application" list="applications" value="{{.Filter.Application}}" placeholder="All applications">
+    </label>
+    <datalist id="applications">
+        {{range .Applications}}
+            <option value="{{.Code}}">{{.Name}}</option>
+        {{end}}
+    </datalist>
+    <label for="subject">
+        Subject
+        <input id="subject" type="search" name="subject" value="{{.Filter.Subject}}" placeholder="Exact subject" maxlength="256">
+    </label>
+{{end}}
+
+{{define "pagination"}}
+    <nav class="pagination" aria-label="Pagination">
+        {{if .Previous}}
+            <a href="{{.Previous}}" role="button" class="secondary outline">&larr; Previous</a>
+        {{else}}
+            <button type="button" class="secondary outline" disabled>&larr; Previous</button>
+        {{end}}
+        {{if .Next}}
+            <a href="{{.Next}}" role="button" class="secondary outline">Next &rarr;</a>
+        {{else}}
+            <button type="button" class="secondary outline" disabled>Next &rarr;</button>
+        {{end}}
+    </nav>
+{{end}}

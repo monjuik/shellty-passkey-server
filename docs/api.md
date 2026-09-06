@@ -18,7 +18,11 @@ nesting deeper than 32 levels are rejected. Application codes match
 `POST /v1/registrations/start`
 
 ```json
-{"application":"shop","subject":"customer-87231","displayName":"Customer 87231"}
+{
+  "application": "shop",
+  "subject": "customer-87231",
+  "displayName": "Customer 87231"
+}
 ```
 
 `displayName` is optional and defaults to subject. It is used for both the
@@ -27,7 +31,26 @@ WebAuthn user name and display name, not for identity verification.
 Success: `200`, with an opaque token, WebAuthn options and server expiry:
 
 ```json
-{"token":"<opaque base64url token>","options":{"publicKey":{"challenge":"...","rp":{"id":"localhost","name":"Example Shop"},"user":{"id":"...","name":"Customer 87231","displayName":"Customer 87231"},"pubKeyCredParams":[{"type":"public-key","alg":-8},{"type":"public-key","alg":-7},{"type":"public-key","alg":-257}]}},"expiresAt":"2026-09-05T12:05:00Z"}
+{
+  "token": "<opaque base64url token>",
+  "options": {
+    "publicKey": {
+      "challenge": "...",
+      "rp": { "id": "localhost", "name": "Example Shop" },
+      "user": {
+        "id": "...",
+        "name": "Customer 87231",
+        "displayName": "Customer 87231"
+      },
+      "pubKeyCredParams": [
+        { "type": "public-key", "alg": -8 },
+        { "type": "public-key", "alg": -7 },
+        { "type": "public-key", "alg": -257 }
+      ]
+    }
+  },
+  "expiresAt": "2026-09-05T12:05:00Z"
+}
 ```
 
 The example omits other generated WebAuthn fields. Forward the whole `options`
@@ -41,13 +64,26 @@ then call `navigator.credentials.create()`. Return the credential's JSON form
 `POST /v1/registrations/finish`
 
 ```json
-{"token":"<registration token>","credential":{"id":"...","rawId":"...","type":"public-key","response":{"clientDataJSON":"...","attestationObject":"..."},"clientExtensionResults":{"credProps":{"rk":true}}}}
+{
+  "token": "<registration token>",
+  "credential": {
+    "id": "...",
+    "rawId": "...",
+    "type": "public-key",
+    "response": { "clientDataJSON": "...", "attestationObject": "..." },
+    "clientExtensionResults": { "credProps": { "rk": true } }
+  }
+}
 ```
 
 Success: `200`:
 
 ```json
-{"application":"shop","subject":"customer-87231","credential":"019c0000-0000-7000-8000-000000000001"}
+{
+  "application": "shop",
+  "subject": "customer-87231",
+  "credential": "019c0000-0000-7000-8000-000000000001"
+}
 ```
 
 The returned credential identifier is a Passkey Server UUIDv7, not the authenticator's ID.
@@ -58,7 +94,7 @@ Registration requests a discoverable credential and UV, `credProps.rk=false` are
 `POST /v1/authentications/start`
 
 ```json
-{"application":"shop","subject":"customer-87231"}
+{ "application": "shop", "subject": "customer-87231" }
 ```
 
 Returns `200` with the same envelope as registration: `token`, `options` (including
@@ -72,7 +108,21 @@ The browser converts `options.publicKey` with
 `POST /v1/authentications/finish`
 
 ```json
-{"token":"<authentication token>","credential":{"id":"...","rawId":"...","type":"public-key","response":{"clientDataJSON":"...","authenticatorData":"...","signature":"...","userHandle":"..."},"clientExtensionResults":{}}}
+{
+  "token": "<authentication token>",
+  "credential": {
+    "id": "...",
+    "rawId": "...",
+    "type": "public-key",
+    "response": {
+      "clientDataJSON": "...",
+      "authenticatorData": "...",
+      "signature": "...",
+      "userHandle": "..."
+    },
+    "clientExtensionResults": {}
+  }
+}
 ```
 
 Success: `200` with `application`, `subject`, `credential`, as above.
@@ -112,19 +162,19 @@ be followed by `conflict` on retry; this API does not promise idempotent result 
 
 Errors have the shape `{"error":"machine_code"}`:
 
-| HTTP | Codes |
-| --- | --- |
-| 400 | `invalid_request`, `registration_invalid`, `authentication_failed` |
-| 403 | `forbidden` (missing certificate or unauthorized fingerprint) |
-| 404 | `application_not_found`, `registration_not_found`, `authentication_not_found`, `credential_not_found` |
-| 409 | `conflict` (used ceremony or duplicate credential within an RP) |
-| 410 | `registration_expired`, `authentication_expired` |
-| 500 | `internal_error` |
+| HTTP | Codes                                                                                                 |
+| ---- | ----------------------------------------------------------------------------------------------------- |
+| 400  | `invalid_request`, `registration_invalid`, `authentication_failed`                                    |
+| 403  | `forbidden` (missing certificate or unauthorized fingerprint)                                         |
+| 404  | `application_not_found`, `registration_not_found`, `authentication_not_found`, `credential_not_found` |
+| 409  | `conflict` (used ceremony or duplicate credential within an RP)                                       |
+| 410  | `registration_expired`, `authentication_expired`                                                      |
+| 500  | `internal_error`                                                                                      |
 
 Invalid client certificates fail at the TLS handshake before an HTTP response.
 Unknown routes/methods use the standard HTTP mux 404/405 responses.
 
-`GET /health` returns `200 {"status":"ok"}`. 
+`GET /health` returns `200 {"status":"ok"}`.
 
 `GET /ready` checks database/schema access and returns `200 {"status":"ready"}` or `503 {"status":"not_ready"}`.
 

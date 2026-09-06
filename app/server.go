@@ -47,11 +47,6 @@ func Run(ctx context.Context, args []string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	// Admin routes are introduced in iteration two; never silently enable an
-	// administrator configuration while its authentication is not implemented.
-	if config.Admin.Enabled {
-		return fmt.Errorf("administration UI is not available in this iteration; set admin.enabled=false")
-	}
 	logger := slog.New(slog.NewJSONHandler(output, nil))
 	tlsConfig, err := TLSConfig(*cert, *key, *ca)
 	if err != nil {
@@ -79,9 +74,13 @@ func Run(ctx context.Context, args []string, output io.Writer) error {
 	}
 	service := passkeys.NewService(config.Applications, passkeys.NewPostgres(pool), webauthn)
 	ready := func(ctx context.Context) error { return CheckSchema(ctx, pool) }
+	admin, err := newAdmin(config, &adminPostgres{pool}, logger)
+	if err != nil {
+		return err
+	}
 	server := &http.Server{
 		Addr:              *listen,
-		Handler:           Handler(service, ready, logger),
+		Handler:           Handler(service, ready, logger, admin),
 		TLSConfig:         tlsConfig,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

@@ -31,9 +31,12 @@ type API struct {
 	logger  *slog.Logger
 }
 
-func Handler(service Passkeys, ready func(context.Context) error, logger *slog.Logger) http.Handler {
+func Handler(service Passkeys, ready func(context.Context) error, logger *slog.Logger, admin ...http.Handler) http.Handler {
 	api := &API{service, ready, logger}
 	mux := http.NewServeMux()
+	if len(admin) > 0 && admin[0] != nil {
+		mux.Handle("/admin/", admin[0])
+	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		api.writeJSON(w, 200, map[string]string{"status": "ok"})
 	})

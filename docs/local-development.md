@@ -124,3 +124,11 @@ createdb --owner=passkey passkey
 ```
 
 DSN: postgres://passkey:<password>@localhost:5432/passkey
+
+## Administration UI
+
+The same HTTPS server can serve the read-only administration UI at
+`https://localhost:8443/admin/`. Enable `admin.enabled`, set a username and bcrypt
+password hash, and restart. The browser needs to trust the server certificate but
+does not need a client certificate. See [administration](administration.md) for
+configuration, cookie lifetime, revocation and manual verification steps.

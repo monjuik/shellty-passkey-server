@@ -1,0 +1,77 @@
+{{define "historyTable"}}
+    <figure>
+        <table class="striped">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    {{if not .Compact}}
+                        <th>Application</th>
+                        <th>Subject</th>
+                    {{end}}
+                    <th>Operation</th>
+                    <th>Result</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .History}}
+                    <tr>
+                        <td><time>{{date .Time}}</time></td>
+                        {{if not $.Compact}}
+                            <td><code>{{.Application}}</code></td>
+                            <td class="subject">
+                                {{if and .Credential .CredentialExists}}
+                                    <a href="{{credentialURL .Credential}}">{{.Subject}}</a>
+                                {{else}}
+                                    {{.Subject}}
+                                {{end}}
+                            </td>
+                        {{end}}
+                        <td><code>{{.Kind}}</code></td>
+                        <td>{{.Result}}</td>
+                        <td>
+                            {{if .Error}}
+                                <code>{{.Error}}</code>
+                            {{else}}
+                                &mdash;
+                            {{end}}
+                        </td>
+                    </tr>
+                {{else}}
+                    <tr>
+                        <td colspan="{{if .Compact}}4{{else}}6{{end}}">No events found.</td>
+                    </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </figure>
+    {{template "pagination" .}}
+{{end}}
+
+{{define "history"}}
+    {{template "start" .}}
+    <header>
+        <h1>History</h1>
+    </header>
+    <form class="filters" method="get" action="/admin/history">
+        {{template "scopeFilters" .}}
+        <label>
+            From (UTC)
+            <input type="date" name="from" value="{{.Filter.From}}">
+        </label>
+        <label>
+            To (UTC)
+            <input type="date" name="to" value="{{.Filter.To}}">
+        </label>
+        {{if .Filter.Credential}}
+            <input type="hidden" name="credential" value="{{.Filter.Credential}}">
+        {{end}}
+        <button type="submit">Search</button>
+        <a href="/admin/history" role="button" class="secondary outline">Reset</a>
+    </form>
+    {{if .Filter.Credential}}
+        <p>Events for credential <code>{{.Filter.Credential}}</code>.</p>
+    {{end}}
+    {{template "historyTable" .}}
+    {{template "end" .}}
+{{end}}

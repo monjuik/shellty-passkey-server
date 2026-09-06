@@ -5,12 +5,15 @@ A minimal self-hosted passkey server for existing applications.
 One binary. One JSON configuration file. One PostgreSQL database.
 Built in Go. No IAM platform and no vendor cloud.
 
-## First iteration
+## Features
 
-The core implements registration, authentication, credential listing/deletion,
-PostgreSQL history, native HTTPS/mTLS, embedded migrations, and health/readiness.
-The read-only administration UI and admin sessions belong to the next iteration;
-startup currently requires `admin.enabled=false`. This is not the complete 0.9 release.
+Registration, authentication, credential listing/deletion, PostgreSQL history,
+native HTTPS/mTLS, embedded migrations, and health/readiness.
+
+The optional read-only administration UI includes Configuration, Credentials,
+credential details with linked history, and searchable History. It uses a
+30-day signed cookie with no session database. See [administration](docs/administration.md)
+for configuration and session behavior.
 
 Requires Go 1.27 and PostgreSQL. Build the single binary:
 
@@ -39,8 +42,8 @@ all `/v1/*` routes require a CA-verified client certificate whose leaf fingerpri
 is authorized for the requested application. TLS terminates in Passkey Server; HTTP proxy
 certificate headers are not trusted.
 
-See [API contract](docs/api.md), [local setup](docs/local-development.md), and
-[dependency review](docs/dependencies.md).
+See [API contract](docs/api.md), [local setup](docs/local-development.md),
+[architecture](docs/architecture.md), and [dependency review](docs/dependencies.md).
 
 ## Browser demo
 
