@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Shellty Passkey Server — Self-hosted WebAuthn passkeys</title>
+        <meta
+            name="description"
+            content="A minimal self-hosted WebAuthn/passkey server for existing applications. One Go binary, one JSON configuration file, one PostgreSQL database. No IAM migration."
+        />
+        <meta name="robots" content="index,follow" />
+        <link
+            rel="canonical"
+            href="https://monjuik.github.io/shellty-passkey-server/"
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Shellty Passkey Server" />
+        <meta
+            property="og:description"
+            content="Passkeys without a new identity stack. Self-hosted WebAuthn for existing applications."
+        />
+        <meta
+            property="og:url"
+            content="https://monjuik.github.io/shellty-passkey-server/"
+        />
+        <meta name="twitter:card" content="summary" />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+        />
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "SoftwareApplication",
+                "name": "Shellty Passkey Server",
+                "applicationCategory": "SecurityApplication",
+                "operatingSystem": "Linux, macOS",
+                "softwareHelp": "https://github.com/monjuik/shellty-passkey-server/tree/main/docs",
+                "downloadUrl": "https://github.com/monjuik/shellty-passkey-server/releases/latest",
+                "codeRepository": "https://github.com/monjuik/shellty-passkey-server",
+                "description": "A minimal self-hosted WebAuthn/passkey server for existing applications.",
+                "license": "https://github.com/monjuik/shellty-passkey-server/blob/main/LICENSE"
+            }
+        </script>
+        <style>
+            :root {
+                --b: #21a7f2;
+                --i: #5837e8;
+                --ink: #111318;
+                --muted: #686d78;
+                --paper: #fbfbfc;
+                --line: #e8e9ed;
+                --night: #070b12;
+                --night2: #0d1624;
+                --nt: #f7f9fc;
+                --nm: #9da9ba;
+                --r: 1.35rem;
+            }
+            html {
+                scroll-behavior: smooth;
+            }
+            body {
+                margin: 0;
+                background: var(--paper);
+                color: var(--ink);
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                    "SF Pro Text", Inter, "Segoe UI", sans-serif;
+            }
+            body > header,
+            body > main,
+            body > footer {
+                max-width: none;
+                padding-inline: 0;
+            }
+            a {
+                text-decoration: none;
+            }
+            .wrap {
+                width: min(1120px, calc(100% - 2rem));
+                margin-inline: auto;
+            }
+            nav {
+                min-height: 72px;
+            }
+            .brand {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.7rem;
+                color: var(--ink);
+                font-weight: 700;
+                letter-spacing: -0.02em;
+            }
+            .brand-mark {
+                width: 34px;
+                height: 34px;
+                display: block;
+            }
+            nav ul {
+                align-items: center;
+            }
+            nav a {
+                color: #414651;
+                font-size: 0.95rem;
+            }
+            .hero {
+                padding: 6.5rem 0 6rem;
+                text-align: center;
+                overflow: hidden;
+                position: relative;
+            }
+            .hero:before {
+                content: "";
+                position: absolute;
+                width: 48rem;
+                height: 48rem;
+                border-radius: 50%;
+                left: 50%;
+                top: -30rem;
+                transform: translateX(-50%);
+                background:
+                    radial-gradient(
+                        circle at 38% 52%,
+                        rgba(33, 167, 242, 0.22),
+                        transparent 36%
+                    ),
+                    radial-gradient(
+                        circle at 64% 48%,
+                        rgba(88, 55, 232, 0.18),
+                        transparent 38%
+                    );
+                filter: blur(18px);
+                pointer-events: none;
+            }
+            h1,
+            h2,
+            h3,
+            p {
+                text-wrap: balance;
+            }
+            h1 {
+                font-size: clamp(3.1rem, 8vw, 6.8rem);
+                line-height: 0.94;
+                letter-spacing: -0.065em;
+                margin: 0 auto 1.7rem;
+                max-width: 930px;
+            }
+            .hero p {
+                max-width: 720px;
+                margin: 0 auto;
+                font-size: clamp(1.15rem, 2vw, 1.45rem);
+                color: var(--muted);
+            }
+            .hero .sub {
+                margin-top: 1rem;
+                font-size: 1rem;
+            }
+            .actions {
+                margin-top: 2rem;
+                display: flex;
+                gap: 0.75rem;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .actions a[role="button"] {
+                margin: 0;
+                border-radius: 999px;
+                padding: 0.8rem 1.25rem;
+                font-weight: 650;
+            }
+            .primary {
+                border: 0;
+                background: linear-gradient(135deg, var(--b), var(--i));
+            }
+            .secondary {
+                background: transparent;
+                color: var(--ink);
+                border-color: #cfd2d9;
+            }
+            .statement {
+                padding: 6rem 0;
+                border-top: 1px solid var(--line);
+                border-bottom: 1px solid var(--line);
+                text-align: center;
+            }
+            .statement h2 {
+                margin: 0;
+                font-size: clamp(2.4rem, 6vw, 5.3rem);
+                line-height: 1;
+                letter-spacing: -0.055em;
+            }
+            .statement p {
+                margin: 1.4rem auto 0;
+                color: var(--muted);
+                font-size: 1.18rem;
+            }
+            .section {
+                padding: 7rem 0;
+            }
+            .section-head {
+                max-width: 760px;
+                margin-bottom: 3rem;
+            }
+            .eyebrow {
+                display: inline-block;
+                margin-bottom: 0.8rem;
+                font-size: 0.78rem;
+                font-weight: 750;
+                letter-spacing: 0.13em;
+                text-transform: uppercase;
+                color: #58606e;
+            }
+            h2 {
+                font-size: clamp(2.25rem, 5vw, 4.65rem);
+                letter-spacing: -0.05em;
+                line-height: 0.98;
+                margin-bottom: 1.15rem;
+            }
+            .lede {
+                font-size: 1.22rem;
+                color: var(--muted);
+                max-width: 700px;
+            }
+            .architecture {
+                background:
+                    radial-gradient(
+                        circle at 50% 44%,
+                        rgba(30, 116, 255, 0.18),
+                        transparent 28%
+                    ),
+                    linear-gradient(180deg, var(--night), #05080d);
+                color: var(--nt);
+            }
+            .architecture .eyebrow,
+            .architecture .lede {
+                color: var(--nm);
+            }
+            .architecture-diagram {
+              margin: 3rem auto 0;
+              max-width: 1100px;
+            }
+
+            .architecture-diagram img {
+              display: block;
+              width: 100%;
+              height: auto;
+              border-radius: 1.25rem;
+            }
+            .arch-stage {
+                margin-top: 3rem;
+                position: relative;
+                display: grid;
+                grid-template-columns: 1fr 1.05fr;
+                gap: 2rem 5rem;
+                align-items: center;
+                min-height: 470px;
+            }
+            .arch-box {
+                border: 1px solid #2d3948;
+                background: linear-gradient(
+                    180deg,
+                    rgba(29, 39, 52, 0.88),
+                    rgba(17, 24, 34, 0.92)
+                );
+                border-radius: var(--r);
+                padding: 1.35rem 1.5rem;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+            }
+            .arch-box strong {
+                font-size: 1.07rem;
+                color: #fff;
+            }
+            .arch-icon {
+                width: 42px;
+                min-width: 42px;
+                height: 42px;
+                color: #dbe5f1;
+            }
+            .arch-client {
+                grid-column: 1;
+                grid-row: 1;
+            }
+            .arch-backend {
+                grid-column: 2;
+                grid-row: 1;
+            }
+            .arch-shellty {
+                grid-column: 2;
+                grid-row: 2;
+                border-color: #238bff;
+                background:
+                    radial-gradient(
+                        circle at 15% 50%,
+                        rgba(42, 194, 255, 0.16),
+                        transparent 28%
+                    ),
+                    linear-gradient(180deg, #16325b, #102542);
+                box-shadow:
+                    0 0 40px rgba(40, 140, 255, 0.13),
+                    inset 0 1px rgba(255, 255, 255, 0.08);
+            }
+            .arch-db {
+                grid-column: 2;
+                grid-row: 3;
+            }
+            .flow-label {
+                position: absolute;
+                left: calc(50% + 4.9rem);
+                top: 36%;
+                color: #9fb6d3;
+                font-size: 0.9rem;
+            }
+            .arrow-right,
+            .arrow-down-1,
+            .arrow-down-2 {
+                position: absolute;
+                background: #8292a7;
+                opacity: 0.9;
+            }
+            .arrow-right {
+                width: 4.3rem;
+                height: 2px;
+                top: 17%;
+                left: calc(50% - 2.2rem);
+            }
+            .arrow-right:after {
+                content: "";
+                position: absolute;
+                right: -1px;
+                top: -5px;
+                border-left: 9px solid #8292a7;
+                border-top: 6px solid transparent;
+                border-bottom: 6px solid transparent;
+            }
+            .arrow-down-1,
+            .arrow-down-2 {
+                width: 2px;
+                height: 3rem;
+                left: 76%;
+            }
+            .arrow-down-1 {
+                top: 29%;
+            }
+            .arrow-down-2 {
+                top: 65%;
+            }
+            .arrow-down-1:after,
+            .arrow-down-2:after {
+                content: "";
+                position: absolute;
+                left: -5px;
+                bottom: -1px;
+                border-top: 9px solid #8292a7;
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+            }
+            .arch-note {
+                margin-top: 2.7rem;
+                color: var(--nm);
+                text-align: center;
+            }
+            .three {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 1rem;
+            }
+            article {
+                border: 1px solid var(--line);
+                border-radius: var(--r);
+                box-shadow: none;
+                padding: 1.5rem;
+                background: #fff;
+            }
+            article h3 {
+                margin-bottom: 0.65rem;
+                letter-spacing: -0.025em;
+            }
+            article p {
+                color: var(--muted);
+                margin-bottom: 0;
+            }
+            .security {
+                background: #f2f4f7;
+            }
+            .security-list {
+                margin-top: 2.5rem;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.65rem 2rem;
+                max-width: 820px;
+                font-size: 1.03rem;
+            }
+            .security-list span {
+                padding: 0.7rem 0;
+                border-bottom: 1px solid #dfe2e7;
+            }
+            .quiet {
+                margin-top: 2rem;
+                font-size: 1.18rem;
+                font-weight: 650;
+                letter-spacing: -0.02em;
+            }
+            .adoption-links {
+                margin-top: 1.6rem;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.8rem 1.25rem;
+            }
+            .adoption-links a {
+                font-weight: 650;
+            }
+            .finance {
+                background: #111;
+                color: #fff;
+            }
+            .finance .eyebrow,
+            .finance .lede {
+                color: #a9adb6;
+            }
+            .finance-list {
+                display: grid;
+                gap: 0.9rem;
+                margin-top: 2rem;
+                max-width: 720px;
+            }
+            .finance-list div {
+                padding: 1rem 0;
+                border-top: 1px solid #282828;
+                font-size: 1.1rem;
+            }
+            .finance small {
+                display: block;
+                margin-top: 2rem;
+                max-width: 760px;
+                color: #8f949d;
+            }
+            .steps {
+                counter-reset: step;
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 0.8rem;
+                margin: 2.5rem 0;
+            }
+            .step {
+                counter-increment: step;
+                padding: 1rem 0;
+                border-top: 1px solid var(--line);
+                font-weight: 650;
+            }
+            .step:before {
+                content: counter(step) ".";
+                display: block;
+                color: #8a909b;
+                margin-bottom: 0.4rem;
+                font-weight: 500;
+            }
+            pre {
+                border: 1px solid #202735;
+                border-radius: var(--r);
+                background: #0c1119;
+                padding: 1.3rem;
+                box-shadow: none;
+            }
+            pre code {
+                color: #e9eef7;
+                font-size: 0.88rem;
+            }
+            .support {
+                padding: 7rem 0;
+                text-align: center;
+            }
+            .support h2 {
+                max-width: 850px;
+                margin-inline: auto;
+            }
+            .support .lede {
+                margin-inline: auto;
+            }
+            .support-list {
+                margin: 2.2rem auto 0;
+                max-width: 760px;
+                display: flex;
+                gap: 0.55rem;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .support-list span {
+                border: 1px solid var(--line);
+                background: #fff;
+                border-radius: 999px;
+                padding: 0.55rem 0.85rem;
+                color: #505662;
+                font-size: 0.92rem;
+            }
+            footer {
+                border-top: 1px solid var(--line);
+                padding: 2.5rem 0 3.5rem;
+                color: #777d87;
+                font-size: 0.9rem;
+            }
+            footer .wrap {
+                display: flex;
+                justify-content: space-between;
+                gap: 1.2rem;
+                flex-wrap: wrap;
+            }
+            footer nav {
+                min-height: auto;
+            }
+            footer a {
+                color: #5a606b;
+            }
+            @media (max-width: 820px) {
+                .hero {
+                    padding-top: 4.5rem;
+                }
+                nav ul:last-child li:not(:last-child) {
+                    display: none;
+                }
+                .three,
+                .steps,
+                .security-list {
+                    grid-template-columns: 1fr;
+                }
+                .section,
+                .support {
+                    padding: 5rem 0;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <nav class="wrap">
+                <ul>
+                    <li>
+                        <a
+                            class="brand"
+                            href="#top"
+                            aria-label="Shellty Passkey Server"
+                        >
+                            <svg
+                                class="brand-mark"
+                                viewBox="0 0 120 120"
+                                aria-hidden="true"
+                            >
+                                <defs>
+                                    <linearGradient id="g" x1="0" x2="1">
+                                        <stop offset="0" stop-color="#21a7f2" />
+                                        <stop offset="1" stop-color="#5837e8" />
+                                    </linearGradient>
+                                </defs>
+                                <g
+                                    fill="none"
+                                    stroke="url(#g)"
+                                    stroke-width="8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <path
+                                        d="M48 24v-8c0-8 5-13 12-13s12 5 12 13v8"
+                                    />
+                                    <path
+                                        d="M33 36 18 31c-7-2-13 2-15 9l-1 5 20-5"
+                                    />
+                                    <path
+                                        d="m87 36 15-5c7-2 13 2 15 9l1 5-20-5"
+                                    />
+                                    <path d="m33 82-10 18 15-4 8-14" />
+                                    <path d="m87 82 10 18-15-4-8-14" />
+                                    <path
+                                        d="M60 22 38 35 31 60l7 25 22 13 22-13 7-25-7-25Z"
+                                    />
+                                    <path
+                                        d="m38 35 22 14 22-14M31 60l22 4 7-15 7 15 22-4M38 85l15-21 7 34 7-34 15 21"
+                                    />
+                                </g>
+                            </svg>
+                            <span>Shellty Passkey Server</span></a
+                        >
+                    </li>
+                </ul>
+                <ul>
+                    <li>
+                        <a
+                            href="https://github.com/monjuik/shellty-passkey-server/tree/main/docs"
+                            >Docs</a
+                        >
+                    </li>
+                    <li>
+                        <a
+                            href="https://github.com/monjuik/shellty-passkey-server"
+                            >GitHub</a
+                        >
+                    </li>
+                    <li>
+                        <a
+                            href="https://github.com/monjuik/shellty-passkey-server/releases/latest"
+                            role="button"
+                            class="outline"
+                            >Releases</a
+                        >
+                    </li>
+                </ul>
+            </nav>
+        </header>
+
+        <main id="top">
+            <section class="hero">
+                <div class="wrap">
+                    <span class="eyebrow">Self-hosted WebAuthn</span>
+                    <h1>Passkeys.<br />Without a new identity stack.</h1>
+                    <p>
+                        Shellty Passkey Server adds passkeys to existing
+                        applications.
+                    </p>
+                    <p class="sub">Self-hosted. One Go binary. PostgreSQL.</p>
+                    <div class="actions">
+                        <a
+                            class="primary"
+                            role="button"
+                            href="https://github.com/monjuik/shellty-passkey-server/releases/latest"
+                            >Download latest release</a
+                        ><a
+                            class="secondary"
+                            role="button"
+                            href="https://github.com/monjuik/shellty-passkey-server"
+                            >View on GitHub</a
+                        >
+                    </div>
+                    <p class="sub">
+                        Keep your users, sessions and identity infrastructure
+                        where they are.
+                    </p>
+                </div>
+            </section>
+
+            <section class="statement">
+                <div class="wrap">
+                    <h2>
+                        One binary.<br />One config file.<br />One PostgreSQL
+                        database.
+                    </h2>
+                    <p>No Redis. No message broker. No vendor cloud.</p>
+                </div>
+            </section>
+
+            <section class="section architecture" id="architecture">
+                <div class="wrap">
+                    <div class="section-head">
+                        <span class="eyebrow">Architecture</span>
+                        <h2>
+                            Fits in.</h2>
+                        <p class="lede">
+                            Your backend keeps the user, session and login
+                            logic. Shellty handles passkey registration and
+                            authentication.
+                        </p>
+                    </div>
+                    <figure class="architecture-diagram">
+                        <img
+                            src="shellty-passkey-server-flow.png"
+                            alt="Shellty Passkey Server architecture: browser or mobile app connects to the existing application backend, which calls Shellty Passkey Server over REST and mTLS; Shellty stores state in PostgreSQL."
+                            loading="lazy"
+                        >
+                    </figure>
+                    <p class="arch-note">
+                        No IAM migration. No yet another customer database.
+                    </p>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="wrap">
+                    <div class="section-head">
+                        <span class="eyebrow">Who it is for</span>
+                        <h2>Made for existing systems.</h2>
+                    </div>
+                    <div class="three">
+                        <article>
+                            <h3>Banks & fintech</h3>
+                            <p>
+                                Add passkeys inside your existing security
+                                boundary.
+                            </p>
+                        </article>
+                        <article>
+                            <h3>SaaS & enterprise</h3>
+                            <p>
+                                Keep your IAM. Add WebAuthn through a small REST
+                                API.
+                            </p>
+                        </article>
+                        <article>
+                            <h3>Integrators</h3>
+                            <p>
+                                A compact base you can understand, deploy and
+                                extend.
+                            </p>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section security">
+                <div class="wrap">
+                    <div class="section-head">
+                        <span class="eyebrow">Security</span>
+                        <h2>Small by design.</h2>
+                    </div>
+                    <div class="security-list">
+                        <span>mTLS integration API</span
+                        ><span>Mandatory user verification</span
+                        ><span>Server-side ceremony state</span
+                        ><span
+                            >Application-specific RP and Origin validation</span
+                        ><span>PostgreSQL persistence</span
+                        ><span>Explicit SQL migrations</span
+                        ><span>No outbound telemetry</span
+                        ><span>Small dependency tree</span>
+                    </div>
+                    <p class="quiet">
+                        Less systems to operate. Less code to trust.
+                    </p>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="wrap">
+                    <div class="section-head">
+                        <span class="eyebrow">Adoption</span>
+                        <h2>Passkeys are already here.</h2>
+                        <p class="lede">
+                            Google, Meta and PayPal use passkeys for account
+                            authentication. Visa and Mastercard are bringing
+                            FIDO-based passkeys into payments.
+                        </p>
+                    </div>
+                    <div
+                        class="adoption-links"
+                        aria-label="Official passkey announcements and documentation"
+                    >
+                        <a
+                            href="https://blog.google/technology/safety-security/google-passkeys-update-april-2024/"
+                            rel="noopener"
+                            >Google ↗</a
+                        >
+                        <a
+                            href="https://about.fb.com/news/2025/06/introducing-passkeys-facebook-easier-sign-in/"
+                            rel="noopener"
+                            >Meta ↗</a
+                        >
+                        <a
+                            href="https://www.paypal.com/us/cshelp/article/what-is-a-passkey-and-how-do-i-use-it-to-log-in-to-my-paypal-account-help997"
+                            rel="noopener"
+                            >PayPal ↗</a
+                        >
+                        <a
+                            href="https://developer.visa.com/capabilities/visa-payment-passkey"
+                            rel="noopener"
+                            >Visa ↗</a
+                        >
+                        <a
+                            href="https://newsroom.mastercard.com/news/press/2024/august/mastercard-selects-india-for-the-global-launch-of-its-payment-passkey-service-accelerating-secure-online-checkout-for-millions-of-shoppers/"
+                            rel="noopener"
+                            >Mastercard ↗</a
+                        >
+                    </div>
+                    <p class="quiet">
+                        Shellty brings the same WebAuthn foundation to
+                        applications that need to run it themselves.
+                    </p>
+                </div>
+            </section>
+
+            <section class="section finance">
+                <div class="wrap">
+                    <div class="section-head">
+                        <span class="eyebrow">Financial services</span>
+                        <h2>Built with financial services in mind.</h2>
+                        <p class="lede">
+                            Banks already have IAM, customer databases with <code>CRM ID</code>, <code>CIF</code> — you name it — and
+                            session infrastructure. Shellty fits into your landscape.
+                        </p>
+                    </div>
+                    <div class="finance-list">
+                        <div>Self-hosted and on-prem friendly</div>
+                        <div>Auditable architecture and dependencies</div>
+                        <div>
+                            Ready to grow toward transaction authentication
+                        </div>
+                    </div>
+                    <small
+                        >Visa Payment Passkey, Mastercard payment integrations
+                        and payment-scheme certification are not part of the
+                        current open-source release.</small
+                    >
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="wrap">
+                    <div class="section-head">
+                        <span class="eyebrow">Operations</span>
+                        <h2>From download to running.</h2>
+                    </div>
+                    <div class="steps">
+                        <div class="step">Create DB</div>
+                        <div class="step">Write config.json</div>
+                        <div class="step">Start passkey-server</div>
+                        <div class="step">Call the API</div>
+                    </div>
+                    <pre><code>./passkey-server \
+  --config=config.json \
+  --database-dsn="$DATABASE_DSN" \
+  --tls-cert=server.crt \
+  --tls-key=server.key \
+  --client-ca=client-ca.crt</code></pre>
+                    <div class="actions" style="justify-content: flex-start">
+                        <a
+                            class="secondary"
+                            role="button"
+                            href="https://github.com/monjuik/shellty-passkey-server/tree/main/docs"
+                            >Read the docs</a
+                        >
+                    </div>
+                </div>
+            </section>
+
+            <section class="statement">
+                <div class="wrap">
+                    <span class="eyebrow">Releases</span>
+                    <h2>Ready to run.</h2>
+                    <p>
+                        Download a release for your platform. Source is there
+                        when you want it.
+                    </p>
+                    <div class="actions">
+                        <a
+                            class="primary"
+                            role="button"
+                            href="https://github.com/monjuik/shellty-passkey-server/releases/latest"
+                            >Download latest release</a
+                        ><a
+                            class="secondary"
+                            role="button"
+                            href="https://github.com/monjuik/shellty-passkey-server"
+                            >Build from source</a
+                        >
+                    </div>
+                </div>
+            </section>
+
+            <section class="support" id="support">
+                <div class="wrap">
+                    <span class="eyebrow">Commercial support</span>
+                    <h2>Need more than the binary?</h2>
+                    <p class="lede">
+                        We help teams integrate Shellty into real systems.
+                    </p>
+                    <div class="support-list">
+                        <span>Functional enhancement</span>
+                        <span>Implementation projects</span>
+                        <span>Customer support</span>
+                    </div>
+                    <div class="actions">
+                        <a
+                            class="primary"
+                            role="button"
+                            href="https://github.com/monjuik/shellty-passkey-server/discussions"
+                            >Discuss your implementation</a
+                        >
+                    </div>
+                </div>
+            </section>
+
+            <section class="statement">
+                <div class="wrap">
+                    <h2>Open source.<br />Commercial help when you need it.</h2>
+                    <p>
+                        Review the code. Run it yourself. Bring us in when the
+                        integration gets specific.
+                    </p>
+                    <div class="actions">
+                        <a
+                            class="secondary"
+                            role="button"
+                            href="https://github.com/monjuik/shellty-passkey-server"
+                            >GitHub</a
+                        ><a
+                            class="secondary"
+                            role="button"
+                            href="https://github.com/monjuik/shellty-passkey-server/blob/main/LICENSE"
+                            >License</a
+                        >
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="wrap">
+                <span>© 2026 Shellty</span
+                ><span>Built for control, clarity and boring operations.</span
+                ><span
+                    ><a href="https://github.com/monjuik/shellty-passkey-server"
+                        >GitHub</a
+                    >
+                    ·
+                    <a
+                        href="https://github.com/monjuik/shellty-passkey-server/tree/main/docs"
+                        >Docs</a
+                    ></span
+                >
+            </div>
+        </footer>
+    </body>
+</html>
