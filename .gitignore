@@ -39,3 +39,4 @@ passkey-demo
 
 # Release archives
 /dist/
+scripts/__pycache__/

@@ -15,7 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def go(*args):
-    return subprocess.check_output(["go", *args], cwd=ROOT, text=True)
+    return subprocess.check_output(
+        ["go", *args], cwd=ROOT, text=True, encoding="utf-8"
+    )
 
 
 def runtime_modules():
@@ -83,7 +85,13 @@ def main():
         binary = package / ("passkey-server.exe" if goos == "windows" else "passkey-server")
         go("build", "-trimpath", f"-ldflags=-s -w -X github.com/monjuik/shellty-passkey-server/app.version={version}", "-o", str(binary), "./cmd/web")
         if args.verify_version:
-            result = subprocess.run([str(binary), "--version"], capture_output=True, text=True, check=True)
+            result = subprocess.run(
+                [str(binary), "--version"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=True,
+            )
             if result.stdout.strip() != f"passkey-server {version}" or result.stderr:
                 raise RuntimeError("Built binary reports an unexpected version")
         for filename in ("README.md", "LICENSE", "config.example.json"):
