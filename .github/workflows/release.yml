@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"
 
 permissions:
   contents: read
@@ -74,21 +74,43 @@ jobs:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
       VERSION: ${{ needs.validate.outputs.version }}
+      ARCHIVE: shellty-passkey-server_${{ needs.validate.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.zip' || '.tar.gz' }}
+      PACKAGE_DIR: shellty-passkey-server_${{ needs.validate.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
       - name: Test
         run: go test ./...
       - name: Vet
         run: go vet ./...
-      - name: Build and package
-        run: python scripts/package-release.py --verify-version
+      - name: Build and package Unix archive
+        if: matrix.goos != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$PACKAGE_DIR/docs"
+          go build -trimpath -ldflags="-s -w -X github.com/monjuik/shellty-passkey-server/app.version=$VERSION" -o "$PACKAGE_DIR/passkey-server" ./cmd/web
+          test "$("$PACKAGE_DIR/passkey-server" --version)" = "passkey-server $VERSION"
+          cp README.md LICENSE config.example.json "$PACKAGE_DIR/"
+          cp docs/administration.md docs/api.md docs/local-development.md "$PACKAGE_DIR/docs/"
+          tar -czf "$ARCHIVE" "$PACKAGE_DIR"
+      - name: Build and package Windows archive
+        if: matrix.goos == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path "$env:PACKAGE_DIR/docs" | Out-Null
+          go build -trimpath "-ldflags=-s -w -X github.com/monjuik/shellty-passkey-server/app.version=$env:VERSION" -o "$env:PACKAGE_DIR/passkey-server.exe" ./cmd/web
+          $version = & ".\$env:PACKAGE_DIR\passkey-server.exe" --version
+          if ($version.Trim() -ne "passkey-server $env:VERSION") {
+            throw "Unexpected binary version: $version"
+          }
+          Copy-Item README.md, LICENSE, config.example.json "$env:PACKAGE_DIR/"
+          Copy-Item docs/administration.md, docs/api.md, docs/local-development.md "$env:PACKAGE_DIR/docs/"
+          Compress-Archive -Path "$env:PACKAGE_DIR" -DestinationPath "$env:ARCHIVE"
       - uses: actions/upload-artifact@v7
         with:
           name: shellty-passkey-server_${{ env.VERSION }}_${{ matrix.goos }}_${{ matrix.goarch }}
@@ -108,24 +130,22 @@ jobs:
           pattern: shellty-passkey-server_*
           path: dist
           merge-multiple: true
-      - name: Verify archives and create checksums
+      - name: Create checksums
         env:
           VERSION: ${{ needs.validate.outputs.version }}
         shell: bash
         run: |
           cd dist
-          expected=()
-          for os in linux darwin windows; do
-            ext=tar.gz
-            if [[ "$os" == windows ]]; then ext=zip; fi
-            for arch in amd64 arm64; do
-              archive="shellty-passkey-server_${VERSION}_${os}_${arch}.${ext}"
-              test -s "$archive"
-              expected+=("$archive")
-            done
+          mapfile -t archives < <(find . -maxdepth 1 -type f -name 'shellty-passkey-server_*' -printf '%f\n' | sort)
+          if [[ "${#archives[@]}" -ne 6 ]]; then
+            echo "Expected 6 release archives, found ${#archives[@]}" >&2
+            printf '%s\n' "${archives[@]}" >&2
+            exit 1
+          fi
+          for archive in "${archives[@]}"; do
+            test -s "$archive"
           done
-          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 6
-          sha256sum "${expected[@]}" > SHA256SUMS
+          sha256sum "${archives[@]}" > SHA256SUMS
           sha256sum --check SHA256SUMS
       - name: Publish release
         env:

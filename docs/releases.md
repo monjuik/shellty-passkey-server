@@ -28,8 +28,9 @@ shellty-passkey-server_0.9.0_windows_amd64.zip
 ```
 
 Each archive contains one directory with `passkey-server` (or `.exe`),
-`config.example.json`, README, LICENSE, documentation and dependency licenses/notices.
-The server embeds its UI and migrations. The demo is available from source only.
+`config.example.json`, README, LICENSE, and the administration, API, and local
+development documentation. The server embeds its UI and migrations. The demo
+is available from source only.
 Binaries are built with CGO disabled. Platform signing, notarization, installers
 and an automated SBOM are not included in this workflow.
 
