@@ -63,6 +63,8 @@ Successful finishes and deletes link to a credential; starts and failed finishes
 do not. Investigating failed attempts therefore requires application-and-subject
 history rather than only the events attached to one key.
 
-History excludes bearer tokens, raw credential responses and challenges. Request
-error logs use fixed messages or stable codes, excluding panic values and arbitrary
-dependency errors that might expose request data or secrets.
+History excludes bearer tokens, raw credential responses and challenges. Failed
+WebAuthn finish events may include the underlying library error in `details.cause`
+for operator diagnostics; this is not exposed by the API. Unexpected application
+errors are written to structured logs with their original error, while expected
+verification failures are not logged.

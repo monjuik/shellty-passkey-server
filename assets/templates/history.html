@@ -35,6 +35,9 @@
                             {{else}}
                                 &mdash;
                             {{end}}
+                            {{if .Details}}
+                                <pre><code>{{.Details}}</code></pre>
+                            {{end}}
                         </td>
                     </tr>
                 {{else}}

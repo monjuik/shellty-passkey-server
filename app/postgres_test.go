@@ -198,6 +198,10 @@ func TestPostgresCeremonies(t *testing.T) {
 	if _, err = b.Finish(ctx, passkeys.Authentication, failed.Token, invalid, "client-a"); !errors.Is(err, passkeys.Conflict) {
 		t.Fatal("failed ceremony reused", err)
 	}
+	var details string
+	if err = first.QueryRow(ctx, "SELECT details::text FROM history WHERE kind='authentication.finish' AND result='failed' ORDER BY occurred_at DESC LIMIT 1").Scan(&details); err != nil || !strings.Contains(details, "origin mismatch") {
+		t.Fatalf("failed authentication details: %s: %v", details, err)
+	}
 	// Infrastructure failure rolls back the ceremony and its history.
 	retry := start(passkeys.Authentication)
 	hash, _ = passkeys.TokenHash(retry.Token)

@@ -3,6 +3,7 @@ package passkeys
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -78,9 +79,14 @@ func event(ctx context.Context, tx pgx.Tx, application, subject, credential, kin
 	if code != nil {
 		publicError = code.Error()
 	}
+	details := []byte(`{}`)
+	var diagnostic *DiagnosticError
+	if errors.As(code, &diagnostic) && diagnostic.Cause != nil {
+		details, _ = json.Marshal(map[string]string{"cause": diagnostic.Cause.Error()})
+	}
 	_, err := tx.Exec(
 		ctx,
-		`INSERT INTO history(id,application,subject,credential,kind,result,error) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+		`INSERT INTO history(id,application,subject,credential,kind,result,error,details) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
 		uuid.NewV7().String(),
 		application,
 		subject,
@@ -88,6 +94,7 @@ func event(ctx context.Context, tx pgx.Tx, application, subject, credential, kin
 		kind,
 		result,
 		publicError,
+		details,
 	)
 	return err
 }

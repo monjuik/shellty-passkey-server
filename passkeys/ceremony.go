@@ -9,6 +9,16 @@ type Error string
 
 func (e Error) Error() string { return string(e) }
 
+// DiagnosticError preserves a safe public error code while retaining the
+// internal cause for committed history events.
+type DiagnosticError struct {
+	Code  Error
+	Cause error
+}
+
+func (e *DiagnosticError) Error() string { return string(e.Code) }
+func (e *DiagnosticError) Unwrap() error { return e.Code }
+
 const (
 	InvalidRequest      Error = "invalid_request"
 	Forbidden           Error = "forbidden"

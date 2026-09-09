@@ -109,6 +109,7 @@ func TestPageAndListenValidation(t *testing.T) {
 	rec := httptest.NewRecorder()
 	d.handler().ServeHTTP(rec, httptest.NewRequest("GET", "https://localhost:3000/", nil))
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "navigator.credentials.create") ||
+		!strings.Contains(rec.Body.String(), "Test invalid registration") ||
 		rec.Header().Get("Cache-Control") != "no-store" {
 		t.Fatal("embedded page")
 	}

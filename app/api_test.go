@@ -95,13 +95,13 @@ func TestHTTPContract(t *testing.T) {
 	service.err = errors.New("SQL password=secret")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, verifiedRequest("POST", "/v1/registrations/start", `{}`))
-	if rec.Code != 500 || strings.Contains(rec.Body.String(), "secret") || strings.Contains(logs.String(), "secret") {
-		t.Fatal("internal error disclosure")
+	if rec.Code != 500 || strings.Contains(rec.Body.String(), "secret") || !strings.Contains(logs.String(), "SQL password=secret") {
+		t.Fatal("internal error logging")
 	}
 	service.panic = true
 	rec = httptest.NewRecorder()
 	handler.ServeHTTP(rec, verifiedRequest("POST", "/v1/registrations/start", `{}`))
-	if rec.Code != 500 || strings.Contains(logs.String(), "secret") {
+	if rec.Code != 500 || strings.Contains(rec.Body.String(), "secret") {
 		t.Fatal("panic handling")
 	}
 	dbErr = errors.New("offline")

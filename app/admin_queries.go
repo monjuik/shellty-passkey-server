@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"slices"
@@ -32,9 +33,9 @@ type adminCredential struct {
 	AAGUIDText string
 }
 type adminEvent struct {
-	ID, Application, Subject, Credential, Kind, Result, Error string
-	Time                                                      time.Time
-	CredentialExists                                          bool
+	ID, Application, Subject, Credential, Kind, Result, Error, Details string
+	Time                                                               time.Time
+	CredentialExists                                                   bool
 }
 type adminStore interface {
 	Credentials(context.Context, adminFilter) ([]adminCredential, error)
@@ -201,7 +202,7 @@ func (p *adminPostgres) History(ctx context.Context, f adminFilter) ([]adminEven
 		s.args = append(s.args, f.Cursor.Time, f.Cursor.ID)
 		s.clauses = append(s.clauses, fmt.Sprintf("(h.occurred_at,h.id) %s ($%d,$%d)", op, len(s.args)-1, len(s.args)))
 	}
-	rows, err := p.pool.Query(ctx, `SELECT h.id::text,h.application,h.subject,COALESCE(h.credential::text,''),h.kind,h.result,COALESCE(h.error,''),h.occurred_at,EXISTS(SELECT 1 FROM credential c WHERE c.id=h.credential) FROM history h`+s.where()+" ORDER BY h.occurred_at"+order+",h.id"+order+" LIMIT "+strconv.Itoa(adminPageSize+1), s.args...)
+	rows, err := p.pool.Query(ctx, `SELECT h.id::text,h.application,h.subject,COALESCE(h.credential::text,''),h.kind,h.result,COALESCE(h.error,''),h.details::text,h.occurred_at,EXISTS(SELECT 1 FROM credential c WHERE c.id=h.credential) FROM history h`+s.where()+" ORDER BY h.occurred_at"+order+",h.id"+order+" LIMIT "+strconv.Itoa(adminPageSize+1), s.args...)
 	if err != nil {
 		return nil, err
 	}
@@ -209,8 +210,17 @@ func (p *adminPostgres) History(ctx context.Context, f adminFilter) ([]adminEven
 	result := []adminEvent{}
 	for rows.Next() {
 		var e adminEvent
-		if err := rows.Scan(&e.ID, &e.Application, &e.Subject, &e.Credential, &e.Kind, &e.Result, &e.Error, &e.Time, &e.CredentialExists); err != nil {
+		var details []byte
+		if err := rows.Scan(&e.ID, &e.Application, &e.Subject, &e.Credential, &e.Kind, &e.Result, &e.Error, &details, &e.Time, &e.CredentialExists); err != nil {
 			return nil, err
+		}
+		if string(details) != "{}" {
+			var formatted any
+			if json.Unmarshal(details, &formatted) == nil {
+				if pretty, err := json.MarshalIndent(formatted, "", "  "); err == nil {
+					e.Details = string(pretty)
+				}
+			}
 		}
 		result = append(result, e)
 	}

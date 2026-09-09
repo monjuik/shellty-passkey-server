@@ -103,6 +103,9 @@ the configured origin accordingly.
    and allow retrying.
 4. Enter a fresh subject with no credentials and click **Проверить вход**. It should
    show an authentication failure.
+5. Click **Test invalid registration** to create a failed registration without using
+   the browser passkey dialog. The server response is `registration_invalid`; inspect
+   the server History to see its diagnostic `details.cause`.
 
 This is a local test harness: any entered subject can be used for registration.
 Successful authentication is displayed but does not create a login session. There

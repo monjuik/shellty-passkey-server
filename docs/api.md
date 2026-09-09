@@ -171,6 +171,8 @@ Errors have the shape `{"error":"machine_code"}`:
 | 410  | `registration_expired`, `authentication_expired`                                                      |
 | 500  | `internal_error`                                                                                      |
 
+The admin UI view may show a `details.cause` value . 
+
 Invalid client certificates fail at the TLS handshake before an HTTP response.
 Unknown routes/methods use the standard HTTP mux 404/405 responses.
 

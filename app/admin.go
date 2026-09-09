@@ -225,8 +225,8 @@ func (a *adminUI) static(w http.ResponseWriter, r *http.Request) {
 func (a *adminUI) configuration(w http.ResponseWriter, r *http.Request) {
 	a.render(w, 200, "configuration", adminPageData{Title: "Configuration", Active: "configuration", Applications: a.config.Applications})
 }
-func (a *adminUI) failure(w http.ResponseWriter, _ error) {
-	a.logger.Error("admin query failed")
+func (a *adminUI) failure(w http.ResponseWriter, err error) {
+	a.logger.Error("admin query failed", "error", err)
 	a.render(w, 500, "error", adminPageData{Title: "Unable to load data", Error: "Data is temporarily unavailable. Please try again."})
 }
 func (a *adminUI) filter(w http.ResponseWriter, r *http.Request, history bool) (adminFilter, bool) {

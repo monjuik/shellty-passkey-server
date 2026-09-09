@@ -25,6 +25,7 @@
   <div class="actions">
     <button id="register" type="button">Add passkey</button>
     <button id="login" type="button">Verify sign-in</button>
+    <button id="invalid-register" type="button">Test invalid registration</button>
   </div>
   <p id="status" role="status" aria-live="polite">Ready to test.</p>
   <pre id="result"></pre>
@@ -33,6 +34,7 @@
   const subject = document.querySelector('#subject');
   const register = document.querySelector('#register');
   const login = document.querySelector('#login');
+  const invalidRegister = document.querySelector('#invalid-register');
   const status = document.querySelector('#status');
   const result = document.querySelector('#result');
 
@@ -109,7 +111,7 @@
       status.textContent = 'Enter a subject between 1 and 256 UTF-8 bytes long.';
       return;
     }
-    subject.disabled = register.disabled = login.disabled = true;
+    subject.disabled = register.disabled = login.disabled = invalidRegister.disabled = true;
     result.textContent = '';
     status.textContent = 'Preparing…';
     try {
@@ -140,10 +142,30 @@
     }
   }
 
+  async function invalidRegistration() {
+    if (!subject.value || new TextEncoder().encode(subject.value).length > 256) {
+      status.textContent = 'Enter a subject between 1 and 256 UTF-8 bytes long.';
+      return;
+    }
+    subject.disabled = register.disabled = login.disabled = invalidRegister.disabled = true;
+    result.textContent = '';
+    status.textContent = 'Sending an intentionally invalid registration…';
+    try {
+      const started = await post('/api/registrations/start', {subject: subject.value});
+      await post('/api/registrations/finish', {token: started.token, credential: {}});
+      status.textContent = 'Unexpected success.';
+    } catch (error) {
+      status.textContent = messages.registration_invalid;
+    } finally {
+      subject.disabled = register.disabled = login.disabled = invalidRegister.disabled = false;
+    }
+  }
+
   register.addEventListener('click', () => ceremony(true));
   login.addEventListener('click', () => ceremony(false));
+  invalidRegister.addEventListener('click', invalidRegistration);
   if (!window.isSecureContext || !window.PublicKeyCredential || !navigator.credentials) {
-    register.disabled = login.disabled = true;
+    register.disabled = login.disabled = invalidRegister.disabled = true;
     status.textContent = 'A browser with WebAuthn support and a trusted HTTPS connection is required.';
   }
 </script>

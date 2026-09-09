@@ -5,6 +5,7 @@ import (
 	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"slices"
 	"uuid"
@@ -127,39 +128,39 @@ func (w *WebAuthnAdapter) Verify(
 	if k == Registration {
 		parsed, e := protocol.ParseCredentialCreationResponseBytes(response)
 		if e != nil {
-			return Credential{}, k.Invalid()
+			return Credential{}, &DiagnosticError{Code: k.Invalid(), Cause: e}
 		}
 		if !slices.Contains(a.Origins, parsed.Response.CollectedClientData.Origin) {
-			return Credential{}, k.Invalid()
+			return Credential{}, &DiagnosticError{Code: k.Invalid(), Cause: errors.New("origin mismatch")}
 		}
 		value, err = rp.CreateCredential(u, session, parsed)
 
 		// An absent credProps.rk means unknown, not false.
 		// Reject only an explicitly non-discoverable credential.
 		if err == nil && value.Extensions.RK != nil && !*value.Extensions.RK {
-			return Credential{}, k.Invalid()
+			return Credential{}, &DiagnosticError{Code: k.Invalid(), Cause: errors.New("credential is not discoverable")}
 		}
 	} else {
 		parsed, e := protocol.ParseCredentialRequestResponseBytes(response)
 		if e != nil {
-			return Credential{}, k.Invalid()
+			return Credential{}, &DiagnosticError{Code: k.Invalid(), Cause: e}
 		}
 		if !slices.Contains(a.Origins, parsed.Response.CollectedClientData.Origin) {
-			return Credential{}, k.Invalid()
+			return Credential{}, &DiagnosticError{Code: k.Invalid(), Cause: errors.New("origin mismatch")}
 		}
 		value, err = rp.ValidateLogin(u, session, parsed)
 	}
 	if err != nil {
-		return Credential{}, k.Invalid()
+		return Credential{}, &DiagnosticError{Code: k.Invalid(), Cause: err}
 	}
 	// The library reports a non-increasing nonzero counter as a clone warning.
 	// Treat it as a failed assertion; 0 -> 0 remains valid for synced passkeys.
 	if value.Authenticator.CloneWarning {
-		return Credential{}, k.Invalid()
+		return Credential{}, &DiagnosticError{Code: k.Invalid(), Cause: errors.New("authenticator clone warning")}
 	}
 	mapped, err := mapCredential(value)
 	if err != nil {
-		return Credential{}, k.Invalid()
+		return Credential{}, &DiagnosticError{Code: k.Invalid(), Cause: err}
 	}
 	mapped.Application = c.Application
 	mapped.Subject = c.Subject
@@ -175,7 +176,7 @@ func (w *WebAuthnAdapter) Verify(
 			}
 		}
 		if mapped.ID == "" {
-			return Credential{}, k.Invalid()
+			return Credential{}, &DiagnosticError{Code: k.Invalid(), Cause: errors.New("credential was not found for subject")}
 		}
 	}
 	return mapped, nil

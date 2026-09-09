@@ -43,7 +43,8 @@ func Handler(service Passkeys, ready func(context.Context) error, logger *slog.L
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), databaseTimeout)
 		defer cancel()
-		if ready(ctx) != nil {
+		if err := ready(ctx); err != nil {
+			logger.Error("database readiness check failed", "error", err)
 			api.writeJSON(w, 503, map[string]string{"status": "not_ready"})
 			return
 		}
@@ -199,7 +200,7 @@ func errorStatus(err error) (int, string) {
 func (a *API) fail(w http.ResponseWriter, err error) {
 	status, code := errorStatus(err)
 	if status == 500 {
-		a.logger.Error("request failed", "code", code)
+		a.logger.Error("request failed", "code", code, "error", err)
 	}
 	a.writeJSON(w, status, map[string]string{"error": code})
 }
